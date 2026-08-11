@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backup Tech Help - Check In</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; max-width: 480px; margin: 40px auto; padding: 0 16px; color: #202124; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    p.sub { color: #5f6368; margin-top: 0; }
+    label { display: block; font-weight: bold; margin: 18px 0 6px; }
+    input[type=text], textarea, select {
+      width: 100%; box-sizing: border-box; padding: 10px; font-size: 16px;
+      border: 1px solid #ccc; border-radius: 6px;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    .device-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .device-grid button {
+      padding: 10px 6px; font-size: 14px; border-radius: 6px; border: 1px solid #ccc;
+      background: #fff; cursor: pointer;
+    }
+    .device-grid button.selected { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    #submitBtn {
+      margin-top: 24px; width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
+      background: #1a73e8; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+    }
+    #submitBtn:disabled { background: #a9c3e8; cursor: not-allowed; }
+    #memberBadge { font-size: 13px; margin-top: 6px; font-weight: bold; }
+    #memberBadge.yes { color: #188038; }
+    #memberBadge.no { color: #c5221f; }
+    #status { margin-top: 16px; padding: 12px; border-radius: 6px; display: none; font-weight: bold; }
+    #status.ok { background: #e6f4ea; color: #188038; display: block; }
+    #status.err { background: #fce8e6; color: #c5221f; display: block; }
+  </style>
+</head>
+<body>
+  <h1>Backup Tech Help - Check In</h1>
+  <p class="sub">For check-in staff: enter the member's name, device, and problem.</p>
+
+  <form id="form">
+    <label for="name">First and Last Name</label>
+    <input type="text" id="name" list="memberNames" autocomplete="off" required>
+    <datalist id="memberNames"></datalist>
+    <div id="memberBadge"></div>
+
+    <label>Device</label>
+    <div class="device-grid" id="deviceGrid">
+      <button type="button" data-device="iPhone">iPhone</button>
+      <button type="button" data-device="iPad">iPad</button>
+      <button type="button" data-device="PC">PC</button>
+      <button type="button" data-device="Mac">Mac</button>
+      <button type="button" data-device="Android">Android</button>
+      <button type="button" data-device="Apple Watch">Apple Watch</button>
+      <button type="button" data-device="Other">Other</button>
+    </div>
+
+    <label for="problem">Describe the problem</label>
+    <textarea id="problem" required></textarea>
+
+    <button type="submit" id="submitBtn">Add to Queue</button>
+  </form>
+
+  <div id="status"></div>
+
+  <script>
+    let memberNames = [];
+    let selectedDevice = null;
+
+    fetch('/api/members')
+      .then(r => r.json())
+      .then(names => {
+        memberNames = names;
+        document.getElementById('memberNames').innerHTML =
+          names.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">').join('');
+      })
+      .catch(err => console.error('Failed to load members', err));
+
+    const nameInput = document.getElementById('name');
+    const badge = document.getElementById('memberBadge');
+    nameInput.addEventListener('input', function () {
+      const val = nameInput.value.trim().toLowerCase();
+      if (!val) { badge.textContent = ''; badge.className = ''; return; }
+      const match = memberNames.some(n => n.toLowerCase() === val);
+      badge.textContent = match ? '\u2713 Member found' : 'Not found in member list - double-check spelling';
+      badge.className = match ? 'yes' : 'no';
+    });
+
+    document.getElementById('deviceGrid').addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      document.querySelectorAll('#deviceGrid button').forEach(b => b.classList.remove('selected'));
+      e.target.classList.add('selected');
+      selectedDevice = e.target.dataset.device;
+    });
+
+    document.getElementById('form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const name = nameInput.value.trim();
+      const problem = document.getElementById('problem').value.trim();
+      const statusEl = document.getElementById('status');
+      const submitBtn = document.getElementById('submitBtn');
+
+      if (!selectedDevice) {
+        statusEl.className = 'err'; statusEl.textContent = 'Please select a device.'; return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Adding...';
+
+      try {
+        const resp = await fetch('/api/checkin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, device: selectedDevice, problem })
+        });
+        const result = await resp.json();
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add to Queue';
+
+        if (result.success) {
+          statusEl.className = 'ok';
+          statusEl.textContent = result.member
+            ? 'Added to queue - member confirmed.'
+            : 'Added to queue - NOT found in member list, please verify.';
+          document.getElementById('form').reset();
+          selectedDevice = null;
+          badge.textContent = '';
+          document.querySelectorAll('#deviceGrid button').forEach(b => b.classList.remove('selected'));
+        } else {
+          statusEl.className = 'err';
+          statusEl.textContent = result.error || 'Something went wrong.';
+        }
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Add to Queue';
+        statusEl.className = 'err';
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

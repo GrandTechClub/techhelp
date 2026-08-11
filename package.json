@@ -1,0 +1,16 @@
+{
+  "name": "backup-tech-help",
+  "version": "1.0.0",
+  "description": "Backup Tech Help queue - check-in + live dashboard, backed by a Google Sheet",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "googleapis": "^140.0.1"
+  }
+}
