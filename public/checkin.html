@@ -31,8 +31,13 @@
     #status { margin-top: 16px; padding: 12px; border-radius: 6px; display: none; font-weight: bold; }
     #status.ok { background: #e6f4ea; color: #188038; display: block; }
     #status.err { background: #fce8e6; color: #c5221f; display: block; }
-    .toggle-link { display: inline-block; margin-top: 10px; font-size: 14px; color: #1a73e8; cursor: pointer; text-decoration: underline; }
-    #preregSection { display: none; margin-top: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; }
+    .tabs { display: flex; gap: 8px; margin: 20px 0 8px; }
+    .tab {
+      flex: 1; text-align: center; padding: 12px 8px; font-size: 15px; font-weight: bold;
+      border-radius: 8px; border: 2px solid #ddd; background: #fff; color: #5f6368; cursor: pointer;
+    }
+    .tab.active { border-color: #1a73e8; background: #e8f0fe; color: #1a73e8; }
+    #preregSection { margin-top: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; }
     #preregSection input[type=text] { margin-bottom: 10px; }
     .prereg-result { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
     .prereg-result .info { font-size: 14px; margin-bottom: 6px; }
@@ -48,6 +53,12 @@
   <h1>Tech Help - Check In</h1>
   <p class="sub">For check-in staff: enter the member's name, device, and problem.</p>
 
+  <div class="tabs">
+    <div class="tab active" id="tabNew">New Check-In</div>
+    <div class="tab" id="tabPrereg">Already Pre-Registered</div>
+  </div>
+
+  <div id="newCheckinPanel">
   <form id="form">
     <label for="name">First and Last Name</label>
     <input type="text" id="name" list="memberNames" autocomplete="off" required>
@@ -72,9 +83,9 @@
   </form>
 
   <div id="status"></div>
+  </div>
 
-  <div class="toggle-link" id="preregToggle">Already pre-registered? Find them here</div>
-  <div id="preregSection">
+  <div id="preregSection" style="display:none;">
     <label for="preregName">Search by name</label>
     <input type="text" id="preregName" autocomplete="off" placeholder="Start typing a name...">
     <div id="preregResults"></div>
@@ -157,17 +168,27 @@
     });
   </script>
   <script>
-    const preregToggle = document.getElementById('preregToggle');
+    const tabNew = document.getElementById('tabNew');
+    const tabPrereg = document.getElementById('tabPrereg');
+    const newCheckinPanel = document.getElementById('newCheckinPanel');
     const preregSection = document.getElementById('preregSection');
     const preregName = document.getElementById('preregName');
     const preregResults = document.getElementById('preregResults');
     let preregDebounce = null;
 
-    preregToggle.addEventListener('click', function () {
-      const showing = preregSection.style.display === 'block';
-      preregSection.style.display = showing ? 'none' : 'block';
-      preregToggle.textContent = showing ? 'Already pre-registered? Find them here' : 'Hide pre-registration search';
-      if (!showing) preregName.focus();
+    tabNew.addEventListener('click', function () {
+      tabNew.classList.add('active');
+      tabPrereg.classList.remove('active');
+      newCheckinPanel.style.display = '';
+      preregSection.style.display = 'none';
+    });
+
+    tabPrereg.addEventListener('click', function () {
+      tabPrereg.classList.add('active');
+      tabNew.classList.remove('active');
+      newCheckinPanel.style.display = 'none';
+      preregSection.style.display = 'block';
+      preregName.focus();
     });
 
     function escapeHtmlPrereg(s) {

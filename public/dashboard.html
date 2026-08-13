@@ -14,17 +14,23 @@
     th { background: #f1f3f4; position: sticky; top: 0; }
     tr.assigned { background: #fef7e0; }
     tr.not-arrived { background: #f1f3f4; color: #80868b; }
-    .pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; white-space: nowrap; }
     .pill.not-assigned { background: #fce8e6; color: #c5221f; }
     .pill.assigned { background: #fef7e0; color: #b06000; }
     .pill.member-yes { background: #e6f4ea; color: #188038; }
     .pill.member-no { background: #eee; color: #5f6368; }
     .pill.not-arrived { background: #e8eaed; color: #5f6368; }
-    button { padding: 7px 14px; font-size: 13px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; margin-right: 4px; }
-    button.claim { background: #1a73e8; color: #fff; border-color: #1a73e8; }
-    button.claim:disabled { background: #dadce0; border-color: #dadce0; color: #80868b; cursor: not-allowed; }
-    button.complete { background: #188038; color: #fff; border-color: #188038; }
-    button.unclaim { background: #fff; }
+    .actions { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+    button.claim {
+      padding: 8px 18px; font-size: 13px; font-weight: bold; border-radius: 6px; border: none;
+      background: #1a73e8; color: #fff; cursor: pointer;
+    }
+    button.claim:disabled { background: #dadce0; color: #80868b; cursor: not-allowed; }
+    button.complete {
+      padding: 8px 18px; font-size: 13px; font-weight: bold; border-radius: 6px; border: none;
+      background: #188038; color: #fff; cursor: pointer;
+    }
+    .unclaim-link { font-size: 12px; color: #5f6368; text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; }
     .empty { padding: 40px; text-align: center; color: #5f6368; }
     .conn-warning { display: none; background: #fce8e6; color: #c5221f; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; font-weight: bold; }
   </style>
@@ -98,8 +104,10 @@
             ? '<button class="claim" disabled title="Check in at the front desk first">Claim</button>'
             : '<button class="claim" onclick="claim(' + r.row + ')">Claim</button>';
         } else {
-          actions = '<button class="unclaim" onclick="unclaim(' + r.row + ')">Unclaim</button>' +
-                     '<button class="complete" onclick="complete(' + r.row + ')">Done</button>';
+          actions = '<div class="actions">' +
+                       '<button class="complete" onclick="complete(' + r.row + ')">Done</button>' +
+                       '<button class="unclaim-link" onclick="unclaim(' + r.row + ')">Unclaim</button>' +
+                     '</div>';
         }
 
         return '<tr class="' + (isAssigned ? 'assigned' : (notArrived ? 'not-arrived' : '')) + '">' +
