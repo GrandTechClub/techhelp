@@ -5,7 +5,8 @@ const MEMBERS_TAB = 'Members';
 const REQUESTS_TAB = 'Requests';
 const REQUESTS_HEADERS = [
   'Timestamp', 'Name', 'Member', 'Device', 'Problem',
-  'Checked In', 'Status', 'Assigned To', 'Assigned Time', 'Completed Time'
+  'Checked In', 'Status', 'Assigned To', 'Assigned Time', 'Completed Time',
+  'Source', 'CE Reg ID'
 ];
 
 let sheetsClientPromise;
@@ -44,7 +45,24 @@ async function ensureRequestsTab() {
     });
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${REQUESTS_TAB}!A1:J1`,
+      range: `${REQUESTS_TAB}!A1:L1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [REQUESTS_HEADERS] }
+    });
+    return;
+  }
+
+  // Tab already exists (e.g. from before Source/CE Reg ID were added) -
+  // backfill any missing header columns without touching existing data.
+  const headerRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${REQUESTS_TAB}!A1:L1`
+  });
+  const currentHeaders = (headerRes.data.values && headerRes.data.values[0]) || [];
+  if (currentHeaders.length < REQUESTS_HEADERS.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${REQUESTS_TAB}!A1:L1`,
       valueInputOption: 'RAW',
       requestBody: { values: [REQUESTS_HEADERS] }
     });
@@ -124,13 +142,13 @@ async function addRequest(name, device, problem) {
   const sheets = await getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${REQUESTS_TAB}!A:J`,
+    range: `${REQUESTS_TAB}!A:L`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
       values: [[
         new Date().toISOString(), name, member ? 'Yes' : 'No', device, problem,
-        'Yes', 'Not Assigned', '', '', ''
+        'Yes', 'Not Assigned', '', '', '', 'Walk-in', ''
       ]]
     }
   });
@@ -138,11 +156,92 @@ async function addRequest(name, device, problem) {
   return { success: true, member };
 }
 
+/**
+ * Imports pre-registered requests pulled from a Club Express CSV export.
+ * Each record: { name, device, problem, ceRegId, timestamp }
+ * Skips any record whose ceRegId already exists in the sheet, so the same
+ * weekly export can be re-uploaded safely without creating duplicates.
+ */
+async function importPreRegistrations(records) {
+  const sheets = await getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${REQUESTS_TAB}!L:L`
+  });
+  const existingIds = new Set((res.data.values || []).map(r => String(r[0] || '').trim()).filter(Boolean));
+
+  const memberNames = await getMemberNames();
+  const memberSet = new Set(memberNames.map(n => n.toLowerCase().replace(/\s+/g, ' ').trim()));
+
+  const rowsToAdd = [];
+  let skipped = 0;
+
+  for (const rec of records) {
+    const ceRegId = String(rec.ceRegId || '').trim();
+    if (ceRegId && existingIds.has(ceRegId)) { skipped++; continue; }
+
+    const name = String(rec.name || '').trim();
+    const device = String(rec.device || '').trim();
+    const problem = String(rec.problem || '').trim();
+    if (!name || !device || !problem) { skipped++; continue; }
+
+    const isMemberMatch = memberSet.has(name.toLowerCase().replace(/\s+/g, ' ').trim());
+    rowsToAdd.push([
+      rec.timestamp || new Date().toISOString(), name, isMemberMatch ? 'Yes' : 'No', device, problem,
+      'No', 'Not Assigned', '', '', '', 'Pre-registered', ceRegId
+    ]);
+    if (ceRegId) existingIds.add(ceRegId);
+  }
+
+  if (rowsToAdd.length) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${REQUESTS_TAB}!A:L`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: rowsToAdd }
+    });
+  }
+
+  return { success: true, imported: rowsToAdd.length, skipped };
+}
+
+/**
+ * Finds pre-registered requests that haven't been checked in yet, matching
+ * on a partial, case-insensitive name search - used by the front desk to
+ * locate a pre-registered member when they arrive.
+ */
+async function findPendingCheckIns(nameQuery) {
+  const query = String(nameQuery || '').toLowerCase().trim();
+  if (!query) return [];
+  const all = await getRequests();
+  return all.filter(r =>
+    r.source === 'Pre-registered' &&
+    r.checkedIn !== 'Yes' &&
+    r.name.toLowerCase().includes(query)
+  );
+}
+
+/**
+ * Flips a pre-registered request's Checked In status to Yes when the
+ * member physically arrives at the club.
+ */
+async function checkInExisting(row) {
+  const sheets = await getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${REQUESTS_TAB}!F${row}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [['Yes']] }
+  });
+  return { success: true };
+}
+
 async function getRequests() {
   const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${REQUESTS_TAB}!A:J`
+    range: `${REQUESTS_TAB}!A:L`
   });
   const data = res.data.values || [];
   const results = [];
@@ -162,7 +261,8 @@ async function getRequests() {
       problem: row[4],
       checkedIn: row[5],
       status: status,
-      assignedTo: row[7]
+      assignedTo: row[7],
+      source: row[10] || 'Walk-in'
     });
   }
   return results;
@@ -215,5 +315,8 @@ module.exports = {
   getRequests,
   claimRequest,
   unclaimRequest,
-  completeRequest
+  completeRequest,
+  importPreRegistrations,
+  findPendingCheckIns,
+  checkInExisting
 };

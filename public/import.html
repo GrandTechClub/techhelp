@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tech Help - Import Pre-Registrations</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; color: #202124; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    p.sub { color: #5f6368; margin-top: 0; }
+    .dropzone {
+      margin-top: 20px; border: 2px dashed #ccc; border-radius: 8px; padding: 32px 16px;
+      text-align: center; color: #5f6368; cursor: pointer;
+    }
+    .dropzone.drag { border-color: #1a73e8; background: #e8f0fe; }
+    input[type=file] { display: none; }
+    #fileName { margin-top: 10px; font-size: 13px; font-weight: bold; }
+    #uploadBtn {
+      margin-top: 20px; width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
+      background: #1a73e8; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+    }
+    #uploadBtn:disabled { background: #a9c3e8; cursor: not-allowed; }
+    #status { margin-top: 16px; padding: 12px; border-radius: 6px; display: none; font-weight: bold; }
+    #status.ok { background: #e6f4ea; color: #188038; display: block; }
+    #status.err { background: #fce8e6; color: #c5221f; display: block; }
+    .note { margin-top: 24px; font-size: 13px; color: #5f6368; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>Import Pre-Registrations</h1>
+  <p class="sub">Upload the Tuesday-morning CSV export from Club Express.</p>
+
+  <label class="dropzone" id="dropzone" for="fileInput">
+    <div>Click to choose a file, or drag one here</div>
+    <div id="fileName"></div>
+  </label>
+  <input type="file" id="fileInput" accept=".csv,text/csv">
+
+  <button id="uploadBtn" disabled>Import</button>
+
+  <div id="status"></div>
+
+  <p class="note">
+    Safe to re-upload the same file more than once - rows already imported (matched by name + registration time) are skipped automatically, so nothing gets duplicated.
+  </p>
+
+  <script>
+    let csvText = null;
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileName = document.getElementById('fileName');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const statusEl = document.getElementById('status');
+
+    function handleFile(file) {
+      if (!file) return;
+      fileName.textContent = file.name;
+      uploadBtn.disabled = false;
+      const reader = new FileReader();
+      reader.onload = () => { csvText = reader.result; };
+      reader.readAsText(file);
+    }
+
+    fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag');
+      handleFile(e.dataTransfer.files[0]);
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      if (!csvText) return;
+      uploadBtn.disabled = true;
+      uploadBtn.textContent = 'Importing...';
+      statusEl.style.display = 'none';
+
+      try {
+        const resp = await fetch('/api/import-preregistrations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ csv: csvText })
+        });
+        const result = await resp.json();
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Import';
+
+        if (result.success) {
+          statusEl.className = 'ok';
+          statusEl.textContent = 'Imported ' + result.imported + ' request(s). Skipped ' + result.skipped + ' (already imported or incomplete).';
+        } else {
+          statusEl.className = 'err';
+          statusEl.textContent = result.error || 'Something went wrong.';
+        }
+      } catch (err) {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = 'Import';
+        statusEl.className = 'err';
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

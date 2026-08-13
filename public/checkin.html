@@ -31,6 +31,17 @@
     #status { margin-top: 16px; padding: 12px; border-radius: 6px; display: none; font-weight: bold; }
     #status.ok { background: #e6f4ea; color: #188038; display: block; }
     #status.err { background: #fce8e6; color: #c5221f; display: block; }
+    .toggle-link { display: inline-block; margin-top: 10px; font-size: 14px; color: #1a73e8; cursor: pointer; text-decoration: underline; }
+    #preregSection { display: none; margin-top: 16px; padding: 16px; background: #f8f9fa; border-radius: 8px; }
+    #preregSection input[type=text] { margin-bottom: 10px; }
+    .prereg-result { background: #fff; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
+    .prereg-result .info { font-size: 14px; margin-bottom: 6px; }
+    .prereg-result .info b { display: block; }
+    .prereg-result button {
+      padding: 8px 14px; font-size: 13px; font-weight: bold; border-radius: 6px; border: none;
+      background: #188038; color: #fff; cursor: pointer;
+    }
+    .prereg-empty { font-size: 13px; color: #5f6368; }
   </style>
 </head>
 <body>
@@ -61,6 +72,13 @@
   </form>
 
   <div id="status"></div>
+
+  <div class="toggle-link" id="preregToggle">Already pre-registered? Find them here</div>
+  <div id="preregSection">
+    <label for="preregName">Search by name</label>
+    <input type="text" id="preregName" autocomplete="off" placeholder="Start typing a name...">
+    <div id="preregResults"></div>
+  </div>
 
   <script>
     let memberNames = [];
@@ -137,6 +155,68 @@
         statusEl.textContent = 'Error: ' + err.message;
       }
     });
+  </script>
+  <script>
+    const preregToggle = document.getElementById('preregToggle');
+    const preregSection = document.getElementById('preregSection');
+    const preregName = document.getElementById('preregName');
+    const preregResults = document.getElementById('preregResults');
+    let preregDebounce = null;
+
+    preregToggle.addEventListener('click', function () {
+      const showing = preregSection.style.display === 'block';
+      preregSection.style.display = showing ? 'none' : 'block';
+      preregToggle.textContent = showing ? 'Already pre-registered? Find them here' : 'Hide pre-registration search';
+      if (!showing) preregName.focus();
+    });
+
+    function escapeHtmlPrereg(s) {
+      return String(s || '').replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function renderPreregResults(results) {
+      if (!results.length) {
+        preregResults.innerHTML = '<div class="prereg-empty">No matching pre-registrations found.</div>';
+        return;
+      }
+      preregResults.innerHTML = results.map(function (r) {
+        return '<div class="prereg-result">' +
+          '<div class="info"><b>' + escapeHtmlPrereg(r.name) + '</b>' +
+          escapeHtmlPrereg(r.device) + ' - ' + escapeHtmlPrereg(r.problem) + '</div>' +
+          '<button onclick="checkInPrereg(' + r.row + ')">Check In</button>' +
+        '</div>';
+      }).join('');
+    }
+
+    preregName.addEventListener('input', function () {
+      clearTimeout(preregDebounce);
+      const q = preregName.value.trim();
+      if (!q) { preregResults.innerHTML = ''; return; }
+      preregDebounce = setTimeout(async function () {
+        try {
+          const resp = await fetch('/api/pending?name=' + encodeURIComponent(q));
+          const results = await resp.json();
+          renderPreregResults(results);
+        } catch (err) {
+          preregResults.innerHTML = '<div class="prereg-empty">Search failed: ' + err.message + '</div>';
+        }
+      }, 300);
+    });
+
+    async function checkInPrereg(row) {
+      try {
+        await fetch('/api/checkin-existing', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ row })
+        });
+        preregName.value = '';
+        preregResults.innerHTML = '<div class="prereg-empty">Checked in! They\'re now on the dashboard.</div>';
+      } catch (err) {
+        preregResults.innerHTML = '<div class="prereg-empty">Check-in failed: ' + err.message + '</div>';
+      }
+    }
   </script>
 </body>
 </html>

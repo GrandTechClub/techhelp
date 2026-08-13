@@ -13,13 +13,16 @@
     th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 15px; }
     th { background: #f1f3f4; position: sticky; top: 0; }
     tr.assigned { background: #fef7e0; }
+    tr.not-arrived { background: #f1f3f4; color: #80868b; }
     .pill { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
     .pill.not-assigned { background: #fce8e6; color: #c5221f; }
     .pill.assigned { background: #fef7e0; color: #b06000; }
     .pill.member-yes { background: #e6f4ea; color: #188038; }
     .pill.member-no { background: #eee; color: #5f6368; }
+    .pill.not-arrived { background: #e8eaed; color: #5f6368; }
     button { padding: 7px 14px; font-size: 13px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; margin-right: 4px; }
     button.claim { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    button.claim:disabled { background: #dadce0; border-color: #dadce0; color: #80868b; cursor: not-allowed; }
     button.complete { background: #188038; color: #fff; border-color: #188038; }
     button.unclaim { background: #fff; }
     .empty { padding: 40px; text-align: center; color: #5f6368; }
@@ -78,28 +81,34 @@
 
       tbody.innerHTML = requests.map(function (r) {
         const isAssigned = r.status === 'Assigned';
+        const notArrived = r.checkedIn !== 'Yes';
         const statusPill = isAssigned
           ? '<span class="pill assigned">Assigned</span>'
           : '<span class="pill not-assigned">Not Assigned</span>';
         const memberPill = r.member === 'Yes'
           ? '<span class="pill member-yes">Member</span>'
           : '<span class="pill member-no">Not Found</span>';
+        const checkedInPill = notArrived
+          ? '<span class="pill not-arrived">Not yet here</span>'
+          : '<span class="pill member-yes">Checked in</span>';
 
         let actions = '';
         if (!isAssigned) {
-          actions = '<button class="claim" onclick="claim(' + r.row + ')">Claim</button>';
+          actions = notArrived
+            ? '<button class="claim" disabled title="Check in at the front desk first">Claim</button>'
+            : '<button class="claim" onclick="claim(' + r.row + ')">Claim</button>';
         } else {
           actions = '<button class="unclaim" onclick="unclaim(' + r.row + ')">Unclaim</button>' +
                      '<button class="complete" onclick="complete(' + r.row + ')">Done</button>';
         }
 
-        return '<tr class="' + (isAssigned ? 'assigned' : '') + '">' +
+        return '<tr class="' + (isAssigned ? 'assigned' : (notArrived ? 'not-arrived' : '')) + '">' +
           '<td>' + fmtTime(r.timestamp) + '</td>' +
           '<td>' + escapeHtml(r.name) + '</td>' +
           '<td>' + memberPill + '</td>' +
           '<td>' + escapeHtml(r.device) + '</td>' +
           '<td>' + escapeHtml(r.problem) + '</td>' +
-          '<td>' + escapeHtml(r.checkedIn) + '</td>' +
+          '<td>' + checkedInPill + '</td>' +
           '<td>' + statusPill + '</td>' +
           '<td>' + escapeHtml(r.assignedTo || '') + '</td>' +
           '<td>' + actions + '</td>' +
