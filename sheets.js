@@ -64,13 +64,32 @@ async function getMemberNames() {
   const data = res.data.values || [];
   if (data.length < 2) return [];
 
-  const headers = data[0].map(h => String(h || '').toLowerCase().trim());
-  const firstIdx = headers.indexOf('first name');
-  const lastIdx = headers.indexOf('last name');
-  const nameIdx = headers.findIndex(h => h === 'name' || h === 'full name');
+  // Club Express exports sometimes have extra title/blank rows before the
+  // real header row, so search the first several rows for the one that
+  // actually contains "first name" / "last name" (or "name" / "full name")
+  // instead of assuming row 1 is the header.
+  const MAX_HEADER_SCAN_ROWS = 10;
+  let headerRowIndex = -1;
+  let firstIdx = -1, lastIdx = -1, nameIdx = -1;
+
+  for (let i = 0; i < Math.min(data.length, MAX_HEADER_SCAN_ROWS); i++) {
+    const candidate = data[i].map(h => String(h || '').toLowerCase().trim());
+    const fIdx = candidate.indexOf('first name');
+    const lIdx = candidate.indexOf('last name');
+    const nIdx = candidate.findIndex(h => h === 'name' || h === 'full name');
+    if ((fIdx > -1 && lIdx > -1) || nIdx > -1) {
+      headerRowIndex = i;
+      firstIdx = fIdx;
+      lastIdx = lIdx;
+      nameIdx = nIdx;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) return [];
 
   const names = [];
-  for (let i = 1; i < data.length; i++) {
+  for (let i = headerRowIndex + 1; i < data.length; i++) {
     const row = data[i];
     let full = '';
     if (firstIdx > -1 && lastIdx > -1) {
