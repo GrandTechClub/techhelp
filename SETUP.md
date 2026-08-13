@@ -1,4 +1,4 @@
-# Backup Tech Help — Setup Guide (Node + Google Sheets)
+# Tech Help — Setup Guide (Node + Google Sheets)
 
 This app lives on GitHub like Lectern. It's a small Node.js/Express app
 that serves two pages — Check-In and Dashboard — and reads/writes a Google
@@ -35,7 +35,7 @@ and without exposing anything to the public internet.
 
 ## 3. Push the code to GitHub
 
-1. Create a new GitHub repo (private is fine), e.g. `backup-tech-help`.
+1. Create a new GitHub repo (private is fine), e.g. `techhelp`.
 2. Add all the files provided (`server.js`, `sheets.js`, `package.json`,
    `public/checkin.html`, `public/dashboard.html`, `.gitignore`,
    `.env.example`).
@@ -51,7 +51,7 @@ and without exposing anything to the public internet.
    - `SPREADSHEET_ID` — the ID from step 1.
    - `GOOGLE_SERVICE_ACCOUNT_KEY` — paste the **entire contents** of the
      JSON key file from step 2, as one line.
-4. Deploy. Render gives you a URL like `https://backup-tech-help.onrender.com`.
+4. Deploy. Render gives you a URL like `https://techhelp.onrender.com`.
    - Check-In page: that URL directly.
    - Dashboard page: same URL + `/dashboard`.
 

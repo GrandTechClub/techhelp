@@ -1,7 +1,7 @@
 {
-  "name": "backup-tech-help",
+  "name": "tech-help",
   "version": "1.0.0",
-  "description": "Backup Tech Help queue - check-in + live dashboard, backed by a Google Sheet",
+  "description": "Tech Help queue - check-in + live dashboard, backed by a Google Sheet",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
