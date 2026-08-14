@@ -16,7 +16,7 @@ const {
 const { parsePreRegistrationCsv, parseMembersCsv } = require('./csv-import');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Lightweight protection for the import endpoints, which are now called
@@ -159,6 +159,18 @@ app.post('/api/import-members', requireImportKey, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+// Catches errors thrown by middleware (like body-parser rejecting an
+// oversized request) or any route that didn't handle its own error, and
+// returns clean JSON instead of Express's default HTML error page - which
+// would otherwise break every front-end fetch() call expecting JSON back.
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ success: false, error: 'File is too large to upload.' });
+  }
+  res.status(err.status || 500).json({ success: false, error: err.message || 'Unexpected server error.' });
+});
 
 ensureRequestsTab()
   .then(() => {
