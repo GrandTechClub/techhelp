@@ -94,4 +94,49 @@ function parsePreRegistrationCsv(text) {
   return { records };
 }
 
-module.exports = { parsePreRegistrationCsv, reformatName };
+/**
+ * Parses a Club Express member list export. Looks for First Name/Last Name
+ * columns (or a single Name/Full Name column), scanning the first several
+ * rows for the header since exports sometimes have a title row above it.
+ */
+function parseMembersCsv(text) {
+  const rows = parseCsvLines(text);
+  const MAX_HEADER_SCAN_ROWS = 10;
+  let headerRowIndex = -1;
+  let firstIdx = -1, lastIdx = -1, nameIdx = -1;
+
+  for (let i = 0; i < Math.min(rows.length, MAX_HEADER_SCAN_ROWS); i++) {
+    const candidate = rows[i].map(h => String(h || '').toLowerCase().trim());
+    const fIdx = candidate.indexOf('first name');
+    const lIdx = candidate.indexOf('last name');
+    const nIdx = candidate.findIndex(h => h === 'name' || h === 'full name');
+    if ((fIdx > -1 && lIdx > -1) || nIdx > -1) {
+      headerRowIndex = i;
+      firstIdx = fIdx; lastIdx = lIdx; nameIdx = nIdx;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) {
+    return { error: 'Could not find a header row with First Name/Last Name (or Name) columns.' };
+  }
+
+  const records = [];
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (firstIdx > -1 && lastIdx > -1) {
+      const first = String(row[firstIdx] || '').trim();
+      const last = String(row[lastIdx] || '').trim();
+      if (!first && !last) continue;
+      records.push({ first, last });
+    } else if (nameIdx > -1) {
+      const name = reformatName(row[nameIdx]);
+      if (!name) continue;
+      records.push({ name });
+    }
+  }
+
+  return { records };
+}
+
+module.exports = { parsePreRegistrationCsv, parseMembersCsv, reformatName };

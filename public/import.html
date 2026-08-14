@@ -3,103 +3,164 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tech Help - Import Pre-Registrations</title>
+  <title>Tech Help - Import</title>
   <style>
     body { font-family: Arial, Helvetica, sans-serif; max-width: 520px; margin: 40px auto; padding: 0 16px; color: #202124; }
     h1 { font-size: 22px; margin-bottom: 4px; }
     p.sub { color: #5f6368; margin-top: 0; }
+    .tabs { display: flex; gap: 8px; margin: 20px 0 8px; }
+    .tab {
+      flex: 1; text-align: center; padding: 12px 8px; font-size: 15px; font-weight: bold;
+      border-radius: 8px; border: 2px solid #ddd; background: #fff; color: #5f6368; cursor: pointer;
+    }
+    .tab.active { border-color: #1a73e8; background: #e8f0fe; color: #1a73e8; }
+    .panel { display: none; }
+    .panel.active { display: block; }
     .dropzone {
-      margin-top: 20px; border: 2px dashed #ccc; border-radius: 8px; padding: 32px 16px;
+      margin-top: 16px; border: 2px dashed #ccc; border-radius: 8px; padding: 32px 16px;
       text-align: center; color: #5f6368; cursor: pointer;
     }
     .dropzone.drag { border-color: #1a73e8; background: #e8f0fe; }
     input[type=file] { display: none; }
-    #fileName { margin-top: 10px; font-size: 13px; font-weight: bold; }
-    #uploadBtn {
+    .fileName { margin-top: 10px; font-size: 13px; font-weight: bold; }
+    .uploadBtn {
       margin-top: 20px; width: 100%; padding: 14px; font-size: 16px; font-weight: bold;
       background: #1a73e8; color: #fff; border: none; border-radius: 6px; cursor: pointer;
     }
-    #uploadBtn:disabled { background: #a9c3e8; cursor: not-allowed; }
-    #status { margin-top: 16px; padding: 12px; border-radius: 6px; display: none; font-weight: bold; }
-    #status.ok { background: #e6f4ea; color: #188038; display: block; }
-    #status.err { background: #fce8e6; color: #c5221f; display: block; }
+    .uploadBtn:disabled { background: #a9c3e8; cursor: not-allowed; }
+    .status {
+      margin-top: 16px; padding: 18px; border-radius: 8px; display: none;
+      font-weight: bold; font-size: 16px; text-align: center; border: 2px solid transparent;
+    }
+    .status.ok { background: #e6f4ea; color: #188038; border-color: #188038; display: block; }
+    .status.err { background: #fce8e6; color: #c5221f; border-color: #c5221f; display: block; }
+    .status .big { font-size: 28px; display: block; margin-bottom: 4px; }
     .note { margin-top: 24px; font-size: 13px; color: #5f6368; line-height: 1.5; }
   </style>
 </head>
 <body>
-  <h1>Import Pre-Registrations</h1>
-  <p class="sub">Upload the Tuesday-morning CSV export from Club Express.</p>
+  <h1>Tech Help - Import</h1>
+  <p class="sub">Upload CSV exports from Club Express.</p>
 
-  <label class="dropzone" id="dropzone" for="fileInput">
-    <div>Click to choose a file, or drag one here</div>
-    <div id="fileName"></div>
-  </label>
-  <input type="file" id="fileInput" accept=".csv,text/csv">
+  <div class="tabs">
+    <div class="tab active" data-target="preregPanel" id="tabPrereg">Pre-Registrations</div>
+    <div class="tab" data-target="membersPanel" id="tabMembers">Member List</div>
+  </div>
 
-  <button id="uploadBtn" disabled>Import</button>
+  <!-- Pre-registrations panel -->
+  <div class="panel active" id="preregPanel">
+    <p class="sub" style="margin-top:12px;">Upload the Tuesday-morning pre-registration report. New requests are added to the queue; already-imported ones are skipped automatically.</p>
+    <label class="dropzone" id="preregDropzone" for="preregFile">
+      <div>Click to choose a file, or drag one here</div>
+      <div class="fileName" id="preregFileName"></div>
+    </label>
+    <input type="file" id="preregFile" accept=".csv,text/csv">
+    <button class="uploadBtn" id="preregUploadBtn" disabled>Import Pre-Registrations</button>
+    <div class="status" id="preregStatus"></div>
+    <p class="note">
+      Safe to re-upload the same file more than once - rows already imported (matched by name + registration time) are skipped automatically, so nothing gets duplicated.
+    </p>
+  </div>
 
-  <div id="status"></div>
-
-  <p class="note">
-    Safe to re-upload the same file more than once - rows already imported (matched by name + registration time) are skipped automatically, so nothing gets duplicated.
-  </p>
+  <!-- Members panel -->
+  <div class="panel" id="membersPanel">
+    <p class="sub" style="margin-top:12px;">Upload the full weekly member list export. This <strong>replaces the entire roster</strong> used for member lookup - not an add, a full overlay.</p>
+    <label class="dropzone" id="membersDropzone" for="membersFile">
+      <div>Click to choose a file, or drag one here</div>
+      <div class="fileName" id="membersFileName"></div>
+    </label>
+    <input type="file" id="membersFile" accept=".csv,text/csv">
+    <button class="uploadBtn" id="membersUploadBtn" disabled>Overlay Member List</button>
+    <div class="status" id="membersStatus"></div>
+    <p class="note">
+      This replaces the current member roster with what's in this file. Make sure it's the full, current export - not a partial list - since anyone missing from the file will no longer be found as a member.
+    </p>
+  </div>
 
   <script>
-    let csvText = null;
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const fileName = document.getElementById('fileName');
-    const uploadBtn = document.getElementById('uploadBtn');
-    const statusEl = document.getElementById('status');
-
-    function handleFile(file) {
-      if (!file) return;
-      fileName.textContent = file.name;
-      uploadBtn.disabled = false;
-      const reader = new FileReader();
-      reader.onload = () => { csvText = reader.result; };
-      reader.readAsText(file);
-    }
-
-    fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
-
-    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
-    dropzone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropzone.classList.remove('drag');
-      handleFile(e.dataTransfer.files[0]);
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.target).classList.add('active');
+      });
     });
 
-    uploadBtn.addEventListener('click', async () => {
-      if (!csvText) return;
-      uploadBtn.disabled = true;
-      uploadBtn.textContent = 'Importing...';
-      statusEl.style.display = 'none';
+    function wireUploader(opts) {
+      let csvText = null;
+      const dropzone = document.getElementById(opts.dropzoneId);
+      const fileInput = document.getElementById(opts.fileInputId);
+      const fileName = document.getElementById(opts.fileNameId);
+      const uploadBtn = document.getElementById(opts.uploadBtnId);
+      const statusEl = document.getElementById(opts.statusId);
 
-      try {
-        const resp = await fetch('/api/import-preregistrations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ csv: csvText })
-        });
-        const result = await resp.json();
+      function handleFile(file) {
+        if (!file) return;
+        fileName.textContent = file.name;
         uploadBtn.disabled = false;
-        uploadBtn.textContent = 'Import';
-
-        if (result.success) {
-          statusEl.className = 'ok';
-          statusEl.textContent = 'Imported ' + result.imported + ' request(s). Skipped ' + result.skipped + ' (already imported or incomplete).';
-        } else {
-          statusEl.className = 'err';
-          statusEl.textContent = result.error || 'Something went wrong.';
-        }
-      } catch (err) {
-        uploadBtn.disabled = false;
-        uploadBtn.textContent = 'Import';
-        statusEl.className = 'err';
-        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.style.display = 'none';
+        const reader = new FileReader();
+        reader.onload = () => { csvText = reader.result; };
+        reader.readAsText(file);
       }
+
+      fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+      dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+      dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('drag');
+        handleFile(e.dataTransfer.files[0]);
+      });
+
+      uploadBtn.addEventListener('click', async () => {
+        if (!csvText) return;
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = opts.busyLabel;
+        statusEl.style.display = 'none';
+
+        try {
+          const resp = await fetch(opts.endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ csv: csvText })
+          });
+          const result = await resp.json();
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = opts.idleLabel;
+
+          if (result.success) {
+            statusEl.className = 'status ok';
+            statusEl.innerHTML = '<span class="big">&#10003; Success</span>' + opts.successMessage(result);
+          } else {
+            statusEl.className = 'status err';
+            statusEl.innerHTML = '<span class="big">&#10007; Failed</span>' + (result.error || 'Something went wrong.');
+          }
+        } catch (err) {
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = opts.idleLabel;
+          statusEl.className = 'status err';
+          statusEl.innerHTML = '<span class="big">&#10007; Failed</span>Error: ' + err.message;
+        }
+      });
+    }
+
+    wireUploader({
+      dropzoneId: 'preregDropzone', fileInputId: 'preregFile', fileNameId: 'preregFileName',
+      uploadBtnId: 'preregUploadBtn', statusId: 'preregStatus',
+      endpoint: '/api/import-preregistrations',
+      idleLabel: 'Import Pre-Registrations', busyLabel: 'Importing...',
+      successMessage: (r) => 'Imported ' + r.imported + ' request(s). Skipped ' + r.skipped + ' (already imported or incomplete).'
+    });
+
+    wireUploader({
+      dropzoneId: 'membersDropzone', fileInputId: 'membersFile', fileNameId: 'membersFileName',
+      uploadBtnId: 'membersUploadBtn', statusId: 'membersStatus',
+      endpoint: '/api/import-members',
+      idleLabel: 'Overlay Member List', busyLabel: 'Overlaying...',
+      successMessage: (r) => 'Member list updated - ' + r.memberCount + ' members loaded.'
     });
   </script>
 </body>

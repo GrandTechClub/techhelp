@@ -69,6 +69,90 @@ async function ensureRequestsTab() {
   }
 }
 
+/**
+ * Finds the header row in the Members tab (searching the first several
+ * rows, since Club Express exports sometimes have a title/blank row above
+ * the real headers) and returns its index plus column positions.
+ */
+async function findMembersHeaderRow(data) {
+  const MAX_HEADER_SCAN_ROWS = 10;
+  for (let i = 0; i < Math.min(data.length, MAX_HEADER_SCAN_ROWS); i++) {
+    const candidate = data[i].map(h => String(h || '').toLowerCase().trim());
+    const fIdx = candidate.indexOf('first name');
+    const lIdx = candidate.indexOf('last name');
+    const nIdx = candidate.findIndex(h => h === 'name' || h === 'full name');
+    if ((fIdx > -1 && lIdx > -1) || nIdx > -1) {
+      return { headerRowIndex: i, firstIdx: fIdx, lastIdx: lIdx, nameIdx: nIdx };
+    }
+  }
+  return null;
+}
+
+/**
+ * Replaces all member data rows with a fresh list, leaving the header row
+ * exactly where it already is. Used for a full weekly overlay from a Club
+ * Express member export - not an append, a full replace of the roster.
+ * records: array of { first, last } (or { name } for a single full-name column)
+ */
+async function overlayMembers(records) {
+  const sheets = await getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: MEMBERS_TAB
+  });
+  const data = res.data.values || [];
+  const headerInfo = await findMembersHeaderRow(data);
+  if (!headerInfo) {
+    return { success: false, error: 'Could not find a header row (First Name/Last Name or Name) in the Members tab.' };
+  }
+
+  const { headerRowIndex, firstIdx, lastIdx, nameIdx } = headerInfo;
+  const useFirstLast = firstIdx > -1 && lastIdx > -1;
+  const numCols = data[headerRowIndex].length;
+  const oldDataRowCount = data.length - (headerRowIndex + 1);
+  const rowsToClear = Math.max(oldDataRowCount, records.length);
+  const startRow = headerRowIndex + 2; // 1-indexed sheet row right after header
+
+  if (rowsToClear > 0) {
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${MEMBERS_TAB}!A${startRow}:${columnLetter(numCols)}${startRow + rowsToClear - 1}`
+    });
+  }
+
+  if (records.length) {
+    const newRows = records.map(r => {
+      const row = new Array(numCols).fill('');
+      if (useFirstLast) {
+        row[firstIdx] = r.first || '';
+        row[lastIdx] = r.last || '';
+        if (nameIdx > -1) row[nameIdx] = `${r.first || ''} ${r.last || ''}`.trim();
+      } else if (nameIdx > -1) {
+        row[nameIdx] = r.name || `${r.first || ''} ${r.last || ''}`.trim();
+      }
+      return row;
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${MEMBERS_TAB}!A${startRow}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: newRows }
+    });
+  }
+
+  return { success: true, memberCount: records.length };
+}
+
+function columnLetter(n) {
+  let s = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 // ---------------------------------------------------------------------
 // Members
 // ---------------------------------------------------------------------
@@ -318,5 +402,6 @@ module.exports = {
   completeRequest,
   importPreRegistrations,
   findPendingCheckIns,
-  checkInExisting
+  checkInExisting,
+  overlayMembers
 };

@@ -10,9 +10,10 @@ const {
   completeRequest,
   importPreRegistrations,
   findPendingCheckIns,
-  checkInExisting
+  checkInExisting,
+  overlayMembers
 } = require('./sheets');
-const { parsePreRegistrationCsv } = require('./csv-import');
+const { parsePreRegistrationCsv, parseMembersCsv } = require('./csv-import');
 
 const app = express();
 app.use(express.json());
@@ -119,6 +120,23 @@ app.post('/api/checkin-existing', async (req, res) => {
   try {
     const { row } = req.body;
     res.json(await checkInExisting(row));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/import-members', async (req, res) => {
+  try {
+    const { csv } = req.body;
+    if (!csv || typeof csv !== 'string') {
+      return res.status(400).json({ success: false, error: 'No CSV text provided.' });
+    }
+    const parsed = parseMembersCsv(csv);
+    if (parsed.error) {
+      return res.status(400).json({ success: false, error: parsed.error });
+    }
+    res.json(await overlayMembers(parsed.records));
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });
