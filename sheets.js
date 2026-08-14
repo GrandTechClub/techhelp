@@ -89,6 +89,37 @@ async function findMembersHeaderRow(data) {
 }
 
 /**
+ * Makes sure a tab's physical grid has at least minRows rows, growing it if
+ * needed. Google Sheets tabs have a fixed grid size independent of how much
+ * data is in them - if rows get deleted (not just cleared), the grid can
+ * shrink below what a write needs, causing an "exceeds grid limits" error.
+ * This keeps that from ever blocking an import again.
+ */
+async function ensureSheetHasRows(sheets, tabName, minRows) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+    fields: 'sheets.properties'
+  });
+  const sheet = meta.data.sheets.find(s => s.properties.title === tabName);
+  if (!sheet) return;
+  const currentRows = sheet.properties.gridProperties.rowCount;
+  if (currentRows < minRows) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{
+          appendDimension: {
+            sheetId: sheet.properties.sheetId,
+            dimension: 'ROWS',
+            length: minRows - currentRows
+          }
+        }]
+      }
+    });
+  }
+}
+
+/**
  * Replaces all member data rows with a fresh list, leaving the header row
  * exactly where it already is. Used for a full weekly overlay from a Club
  * Express member export - not an append, a full replace of the roster.
@@ -112,6 +143,8 @@ async function overlayMembers(records) {
   const oldDataRowCount = data.length - (headerRowIndex + 1);
   const rowsToClear = Math.max(oldDataRowCount, records.length);
   const startRow = headerRowIndex + 2; // 1-indexed sheet row right after header
+
+  await ensureSheetHasRows(sheets, MEMBERS_TAB, startRow + rowsToClear - 1);
 
   if (rowsToClear > 0) {
     await sheets.spreadsheets.values.clear({
