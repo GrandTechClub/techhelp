@@ -92,11 +92,10 @@ async function processMessage(gmail, message, route) {
 
   console.log(`[${route.label}] Imported message ${message.id}:`, JSON.stringify(result));
 
-  // Mark as read so it's not reprocessed next run.
-  await gmail.users.messages.modify({
-    userId: 'me', id: message.id,
-    requestBody: { removeLabelIds: ['UNREAD'] }
-  });
+  // Move to Trash so it's not reprocessed next run. Gmail keeps trashed
+  // items for 30 days before permanently deleting them, so this is safely
+  // recoverable if something ever needs a second look.
+  await gmail.users.messages.trash({ userId: 'me', id: message.id });
 
   return { imported: true };
 }
