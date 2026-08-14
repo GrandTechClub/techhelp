@@ -78,6 +78,11 @@
   </div>
 
   <script>
+    // If you set IMPORT_API_KEY on Render, put the same value here so
+    // manual uploads from this page keep working. Leave blank if you
+    // haven't set that env var yet.
+    const IMPORT_API_KEY = '';
+
     // Tab switching
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -124,7 +129,7 @@
         try {
           const resp = await fetch(opts.endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-import-key': IMPORT_API_KEY },
             body: JSON.stringify({ csv: csvText })
           });
           const result = await resp.json();

@@ -19,6 +19,21 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Lightweight protection for the import endpoints, which are now called
+// both from the browser (staff uploads) and from an automated script.
+// If IMPORT_API_KEY isn't set on Render, this is skipped entirely - set
+// it once automation is wired up to stop random requests from reaching
+// these endpoints.
+function requireImportKey(req, res, next) {
+  const configuredKey = process.env.IMPORT_API_KEY;
+  if (!configuredKey) return next();
+  const providedKey = req.headers['x-import-key'];
+  if (providedKey !== configuredKey) {
+    return res.status(401).json({ success: false, error: 'Invalid or missing import key.' });
+  }
+  next();
+}
+
 // ---- pages ----
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'checkin.html'));
@@ -89,7 +104,7 @@ app.post('/api/complete', async (req, res) => {
   }
 });
 
-app.post('/api/import-preregistrations', async (req, res) => {
+app.post('/api/import-preregistrations', requireImportKey, async (req, res) => {
   try {
     const { csv } = req.body;
     if (!csv || typeof csv !== 'string') {
@@ -126,7 +141,7 @@ app.post('/api/checkin-existing', async (req, res) => {
   }
 });
 
-app.post('/api/import-members', async (req, res) => {
+app.post('/api/import-members', requireImportKey, async (req, res) => {
   try {
     const { csv } = req.body;
     if (!csv || typeof csv !== 'string') {

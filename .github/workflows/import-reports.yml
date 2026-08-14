@@ -1,0 +1,27 @@
+name: Import Club Express reports
+
+on:
+  schedule:
+    # 7:00 AM Central on Tuesdays. GitHub Actions cron is UTC - adjust if
+    # your timezone or desired time changes. Central is UTC-6 (or UTC-5
+    # during daylight saving), so 7:00 AM Central ≈ 13:00 UTC most of the
+    # year. Double check around DST changes.
+    - cron: '0 13 * * 2'
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install googleapis --no-save
+      - run: node scripts/fetch-and-import.js
+        env:
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
+          RENDER_BASE_URL: ${{ secrets.RENDER_BASE_URL }}
+          RENDER_IMPORT_API_KEY: ${{ secrets.RENDER_IMPORT_API_KEY }}
