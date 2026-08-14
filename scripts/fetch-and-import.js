@@ -5,11 +5,11 @@
 
 const { google } = require('googleapis');
 
+const RENDER_BASE_URL = (process.env.RENDER_BASE_URL || '').replace(/\/+$/, '');
 const {
   GMAIL_CLIENT_ID,
   GMAIL_CLIENT_SECRET,
   GMAIL_REFRESH_TOKEN,
-  RENDER_BASE_URL,
   RENDER_IMPORT_API_KEY
 } = process.env;
 
@@ -75,7 +75,15 @@ async function processMessage(gmail, message, route) {
     },
     body: JSON.stringify({ csv: csvText })
   });
-  const result = await resp.json();
+
+  const rawBody = await resp.text();
+  let result;
+  try {
+    result = JSON.parse(rawBody);
+  } catch (parseErr) {
+    console.error(`[${route.label}] Server returned a non-JSON response (HTTP ${resp.status}) for message ${message.id}. First 200 chars: ${rawBody.slice(0, 200)}`);
+    return { imported: false };
+  }
 
   if (!result.success) {
     console.error(`[${route.label}] Import failed for message ${message.id}:`, result.error);
