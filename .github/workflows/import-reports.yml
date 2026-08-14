@@ -2,11 +2,10 @@ name: Import Club Express reports
 
 on:
   schedule:
-    # 7:00 AM Central on Tuesdays. GitHub Actions cron is UTC - adjust if
-    # your timezone or desired time changes. Central is UTC-6 (or UTC-5
-    # during daylight saving), so 7:00 AM Central ≈ 13:00 UTC most of the
-    # year. Double check around DST changes.
-    - cron: '0 13 * * 2'
+    # 11:00 AM Phoenix time on Tuesdays. Phoenix (Arizona) doesn't observe
+    # Daylight Saving Time, so it stays UTC-7 year-round - no seasonal
+    # adjustment needed here, unlike most US timezones.
+    - cron: '0 18 * * 2'
   workflow_dispatch: {} # lets you trigger it manually from the Actions tab
 
 jobs:
