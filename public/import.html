@@ -105,7 +105,7 @@
         if (!file) return;
         fileName.textContent = file.name;
         uploadBtn.disabled = false;
-        statusEl.style.display = 'none';
+        statusEl.className = 'status';
         const reader = new FileReader();
         reader.onload = () => { csvText = reader.result; };
         reader.readAsText(file);
@@ -124,7 +124,7 @@
         if (!csvText) return;
         uploadBtn.disabled = true;
         uploadBtn.textContent = opts.busyLabel;
-        statusEl.style.display = 'none';
+        statusEl.className = 'status';
 
         try {
           const resp = await fetch(opts.endpoint, {
