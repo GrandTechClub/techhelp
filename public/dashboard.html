@@ -33,11 +33,13 @@
     .unclaim-link { font-size: 15px; color: #5f6368; text-decoration: underline; cursor: pointer; background: none; border: none; padding: 0; }
     .empty { padding: 40px; text-align: center; color: #5f6368; font-size: 20px; }
     .conn-warning { display: none; background: #fce8e6; color: #c5221f; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 16px; font-weight: bold; }
+    #open-count { font-weight: bold; color: #c5221f; }
+    tr.divider td { background: #f1f3f4; color: #5f6368; font-weight: bold; font-size: 15px; padding: 8px 16px; border-bottom: 1px solid #eee; }
   </style>
 </head>
 <body>
   <h1>Tech Help Queue</h1>
-  <div class="meta">Auto-refreshes every 4 seconds &middot; Last updated: <span id="meta-time">--</span></div>
+  <div class="meta">Auto-refreshes every 4 seconds &middot; <span id="open-count"></span> &middot; Last updated: <span id="meta-time">--</span></div>
   <div class="conn-warning" id="connWarning">Can't reach the server - showing the last known queue. Retrying...</div>
 
   <table>
@@ -73,10 +75,52 @@
       });
     }
 
+    function rowHtml(r) {
+      const isAssigned = r.status === 'Assigned';
+      const notArrived = r.checkedIn !== 'Yes';
+      const statusPill = isAssigned
+        ? '<span class="pill assigned">Assigned</span>'
+        : '<span class="pill not-assigned">Not Assigned</span>';
+      const memberPill = r.member === 'Yes'
+        ? '<span class="pill member-yes">Member</span>'
+        : '<span class="pill member-no">Not Found</span>';
+      const checkedInPill = notArrived
+        ? '<span class="pill not-arrived">Not yet here</span>'
+        : '<span class="pill member-yes">Checked in</span>';
+
+      let actions = '';
+      if (!isAssigned) {
+        actions = notArrived
+          ? '<button class="claim" disabled title="Check in at the front desk first">Claim</button>'
+          : '<button class="claim" onclick="claim(' + r.row + ')">Claim</button>';
+      } else {
+        actions = '<div class="actions">' +
+                     '<button class="complete" onclick="complete(' + r.row + ')">Done</button>' +
+                     '<button class="unclaim-link" onclick="unclaim(' + r.row + ')">Unclaim</button>' +
+                   '</div>';
+      }
+
+      return '<tr class="' + (isAssigned ? 'assigned' : (notArrived ? 'not-arrived' : '')) + '">' +
+        '<td>' + fmtTime(r.timestamp) + '</td>' +
+        '<td>' + escapeHtml(r.name) + '</td>' +
+        '<td>' + memberPill + '</td>' +
+        '<td>' + escapeHtml(r.device) + '</td>' +
+        '<td>' + escapeHtml(r.problem) + '</td>' +
+        '<td>' + checkedInPill + '</td>' +
+        '<td>' + statusPill + '</td>' +
+        '<td>' + escapeHtml(r.assignedTo || '') + '</td>' +
+        '<td>' + actions + '</td>' +
+      '</tr>';
+    }
+
     function render(requests) {
       const tbody = document.getElementById('rows');
       const emptyMsg = document.getElementById('emptyMsg');
       document.getElementById('meta-time').textContent = new Date().toLocaleTimeString();
+
+      const unassigned = requests.filter(function (r) { return r.status !== 'Assigned'; });
+      const assigned = requests.filter(function (r) { return r.status === 'Assigned'; });
+      document.getElementById('open-count').textContent = unassigned.length + ' open';
 
       if (!requests.length) {
         tbody.innerHTML = '';
@@ -85,43 +129,12 @@
       }
       emptyMsg.style.display = 'none';
 
-      tbody.innerHTML = requests.map(function (r) {
-        const isAssigned = r.status === 'Assigned';
-        const notArrived = r.checkedIn !== 'Yes';
-        const statusPill = isAssigned
-          ? '<span class="pill assigned">Assigned</span>'
-          : '<span class="pill not-assigned">Not Assigned</span>';
-        const memberPill = r.member === 'Yes'
-          ? '<span class="pill member-yes">Member</span>'
-          : '<span class="pill member-no">Not Found</span>';
-        const checkedInPill = notArrived
-          ? '<span class="pill not-arrived">Not yet here</span>'
-          : '<span class="pill member-yes">Checked in</span>';
-
-        let actions = '';
-        if (!isAssigned) {
-          actions = notArrived
-            ? '<button class="claim" disabled title="Check in at the front desk first">Claim</button>'
-            : '<button class="claim" onclick="claim(' + r.row + ')">Claim</button>';
-        } else {
-          actions = '<div class="actions">' +
-                       '<button class="complete" onclick="complete(' + r.row + ')">Done</button>' +
-                       '<button class="unclaim-link" onclick="unclaim(' + r.row + ')">Unclaim</button>' +
-                     '</div>';
-        }
-
-        return '<tr class="' + (isAssigned ? 'assigned' : (notArrived ? 'not-arrived' : '')) + '">' +
-          '<td>' + fmtTime(r.timestamp) + '</td>' +
-          '<td>' + escapeHtml(r.name) + '</td>' +
-          '<td>' + memberPill + '</td>' +
-          '<td>' + escapeHtml(r.device) + '</td>' +
-          '<td>' + escapeHtml(r.problem) + '</td>' +
-          '<td>' + checkedInPill + '</td>' +
-          '<td>' + statusPill + '</td>' +
-          '<td>' + escapeHtml(r.assignedTo || '') + '</td>' +
-          '<td>' + actions + '</td>' +
-        '</tr>';
-      }).join('');
+      let html = unassigned.map(rowHtml).join('');
+      if (assigned.length) {
+        html += '<tr class="divider"><td colspan="9">Claimed &mdash; ' + assigned.length + '</td></tr>';
+        html += assigned.map(rowHtml).join('');
+      }
+      tbody.innerHTML = html;
     }
 
     async function refresh() {

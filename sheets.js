@@ -11,6 +11,14 @@ const REQUESTS_HEADERS = [
 
 let sheetsClientPromise;
 
+/**
+ * Formats a Date as Phoenix-local time (e.g. "8/4/2026, 1:01:41 PM") so the
+ * sheet is human-readable instead of showing raw ISO timestamps.
+ */
+function formatTimestamp(date) {
+  return (date || new Date()).toLocaleString('en-US', { timeZone: 'America/Phoenix' });
+}
+
 function getSheetsClient() {
   if (!sheetsClientPromise) {
     if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
@@ -264,7 +272,7 @@ async function addRequest(name, device, problem) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
       values: [[
-        new Date().toISOString(), name, member ? 'Yes' : 'No', device, problem,
+        formatTimestamp(), name, member ? 'Yes' : 'No', device, problem,
         'Yes', 'Not Assigned', '', '', '', 'Walk-in', ''
       ]]
     }
@@ -304,7 +312,7 @@ async function importPreRegistrations(records) {
 
     const isMemberMatch = memberSet.has(name.toLowerCase().replace(/\s+/g, ' ').trim());
     rowsToAdd.push([
-      rec.timestamp || new Date().toISOString(), name, isMemberMatch ? 'Yes' : 'No', device, problem,
+      rec.timestamp || formatTimestamp(), name, isMemberMatch ? 'Yes' : 'No', device, problem,
       'No', 'Not Assigned', '', '', '', 'Pre-registered', ceRegId
     ]);
     if (ceRegId) existingIds.add(ceRegId);
@@ -393,7 +401,7 @@ async function claimRequest(row, helperName) {
     spreadsheetId: SPREADSHEET_ID,
     range: `${REQUESTS_TAB}!G${row}:I${row}`,
     valueInputOption: 'RAW',
-    requestBody: { values: [['Assigned', helperName, new Date().toISOString()]] }
+    requestBody: { values: [['Assigned', helperName, formatTimestamp()]] }
   });
   return { success: true };
 }
@@ -418,7 +426,7 @@ async function completeRequest(row) {
       valueInputOption: 'RAW',
       data: [
         { range: `${REQUESTS_TAB}!G${row}`, values: [['Completed']] },
-        { range: `${REQUESTS_TAB}!J${row}`, values: [[new Date().toISOString()]] }
+        { range: `${REQUESTS_TAB}!J${row}`, values: [[formatTimestamp()]] }
       ]
     }
   });
