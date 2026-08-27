@@ -362,6 +362,35 @@ async function checkInExisting(row) {
   return { success: true };
 }
 
+/**
+ * True if a pre-registered request is a no-show from a past week's event -
+ * never checked in, and dated before the most recent Tuesday. These age
+ * off the live dashboard on their own once their event date has passed,
+ * instead of lingering forever until someone remembers to mark them
+ * Completed by hand. This only affects what the dashboard shows - the row
+ * itself is untouched in the Sheet, so it's still there for reporting.
+ */
+function isStalePreRegistration(row) {
+  if (row.source !== 'Pre-registered' || row.checkedIn === 'Yes') return false;
+
+  const match = String(row.timestamp || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!match) return false; // can't tell the date - don't hide it
+
+  const [, month, day, year] = match;
+  const rowDateUtc = Date.UTC(Number(year), Number(month) - 1, Number(day));
+
+  const phoenixParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Phoenix', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short'
+  }).formatToParts(new Date());
+  const get = type => phoenixParts.find(p => p.type === type).value;
+  const todayUtc = Date.UTC(Number(get('year')), Number(get('month')) - 1, Number(get('day')));
+  const dowMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const daysSinceTuesday = (dowMap[get('weekday')] - 2 + 7) % 7;
+  const mostRecentTuesdayUtc = todayUtc - daysSinceTuesday * 24 * 60 * 60 * 1000;
+
+  return rowDateUtc < mostRecentTuesdayUtc;
+}
+
 async function getRequests() {
   const sheets = await getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
@@ -377,7 +406,7 @@ async function getRequests() {
     if (status === 'Completed') continue;
     if (!row[1]) continue; // skip blank rows
 
-    results.push({
+    const record = {
       row: i + 1, // 1-indexed sheet row
       timestamp: row[0],
       name: row[1],
@@ -388,7 +417,9 @@ async function getRequests() {
       status: status,
       assignedTo: row[7],
       source: row[10] || 'Walk-in'
-    });
+    };
+    if (isStalePreRegistration(record)) continue;
+    results.push(record);
   }
   return results;
 }
