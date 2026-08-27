@@ -393,6 +393,42 @@ async function getRequests() {
   return results;
 }
 
+/**
+ * Returns every row in the Requests tab, unfiltered - used by the walk-in
+ * reporting export, which (unlike the live dashboard) needs completed
+ * requests too, not just the ones still open.
+ */
+async function getAllRequests() {
+  const sheets = await getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${REQUESTS_TAB}!A:L`
+  });
+  const data = res.data.values || [];
+  const results = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[1]) continue; // skip blank rows
+
+    results.push({
+      timestamp: row[0],
+      name: row[1],
+      member: row[2],
+      device: row[3],
+      problem: row[4],
+      checkedIn: row[5],
+      status: row[6],
+      assignedTo: row[7],
+      assignedTime: row[8],
+      completedTime: row[9],
+      source: row[10] || 'Walk-in',
+      ceRegId: row[11]
+    });
+  }
+  return results;
+}
+
 async function claimRequest(row, helperName) {
   helperName = String(helperName || '').trim();
   if (!helperName) return { success: false, error: 'Helper name required.' };
@@ -438,6 +474,7 @@ module.exports = {
   getMemberNames,
   addRequest,
   getRequests,
+  getAllRequests,
   claimRequest,
   unclaimRequest,
   completeRequest,
