@@ -62,7 +62,7 @@ function getGmailClient() {
 // reinterpret the string and shift the time by 7 hours.
 function toSqlDateTime(raw) {
   const m = String(raw || '').trim().match(
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s*,\s*(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i
   );
   if (!m) return '';
   let [, month, day, year, hour, minute, second, ampm] = m;
