@@ -431,9 +431,18 @@ async function getRequests() {
  */
 async function getAllRequests() {
   const sheets = await getSheetsClient();
+  // UNFORMATTED_VALUE + SERIAL_NUMBER returns real date/time cells as a
+  // raw Sheets serial number instead of whatever text the cell's display
+  // format happens to produce - the walk-in export depends on parsing
+  // this reliably, and cell formatting has proven too fragile to trust
+  // (a stray space in a custom format was enough to blank out every
+  // date). Plain-text timestamp cells (the normal case, written by the
+  // live app) are returned unchanged either way.
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${REQUESTS_TAB}!A:L`
+    range: `${REQUESTS_TAB}!A:L`,
+    valueRenderOption: 'UNFORMATTED_VALUE',
+    dateTimeRenderOption: 'SERIAL_NUMBER'
   });
   const data = res.data.values || [];
   const results = [];

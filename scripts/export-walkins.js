@@ -55,12 +55,30 @@ function getGmailClient() {
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
 
-// Converts the Sheet's "8/4/2026, 1:01:41 PM" (Phoenix wall-clock string)
-// into "2026-08-04 13:01:41" for an unambiguous SQL Server import. This is
-// deliberately string parsing, not a round-trip through Date - the
-// runner's own timezone (UTC on GitHub Actions) would otherwise
-// reinterpret the string and shift the time by 7 hours.
+// Sheets/Excel date serials count days from Dec 30, 1899 (a quirk carried
+// over from Lotus 1-2-3). Constructing via Date.UTC and reading the UTC
+// fields back out gives the exact wall-clock Y/M/D/H/M/S the serial
+// represents, with no timezone shifting involved.
+const SHEETS_EPOCH_UTC_MS = Date.UTC(1899, 11, 30);
+
+function fromSheetsSerial(serial) {
+  const ms = SHEETS_EPOCH_UTC_MS + Math.round(serial * 24 * 60 * 60 * 1000);
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+}
+
+// Converts a Requests-tab timestamp into "2026-08-04 13:01:41" for an
+// unambiguous SQL Server import. Handles two cases: a real date/time
+// cell (returned as a raw Sheets serial number - see getAllRequests) or
+// plain text like "8/4/2026, 1:01:41 PM" (the normal case, written by
+// the live app). The string path is deliberately string parsing, not a
+// round-trip through Date - the runner's own timezone (UTC on GitHub
+// Actions) would otherwise reinterpret the string and shift the time by
+// 7 hours.
 function toSqlDateTime(raw) {
+  if (typeof raw === 'number') return fromSheetsSerial(raw);
+
   const m = String(raw || '').trim().match(
     /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s*,\s*(\d{1,2}):(\d{2}):(\d{2})\s*(AM|PM)$/i
   );
