@@ -109,11 +109,6 @@ async function buildWalkinRows() {
   const all = await getAllRequests();
   const walkins = all.filter(r => r.source === 'Walk-in');
 
-  // TEMP DEBUG: remove once date parsing is confirmed working.
-  console.log('Sample raw timestamps:', walkins.slice(0, 3).map(r => ({
-    name: r.name, type: typeof r.timestamp, value: JSON.stringify(r.timestamp)
-  })));
-
   const seen = new Set();
   const rows = [];
   for (const r of walkins) {
