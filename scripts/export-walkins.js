@@ -13,6 +13,7 @@
 // staging table from whatever CSV it finds, so a partial export would wipe
 // out every earlier week's data on the next load.
 
+const fs = require('fs');
 const { google } = require('googleapis');
 const { getAllRequests } = require('../sheets');
 
@@ -30,12 +31,22 @@ const SUBJECT = 'TechHelp Walkins Report';
 // Exago Tables" job - it likely expects a fixed filename, not a dated one.
 const FILENAME = 'TechHelp_Walkins.csv';
 
-function requireEnv() {
-  const missing = ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN', 'SPREADSHEET_ID', 'GOOGLE_SERVICE_ACCOUNT_KEY']
-    .filter(k => !process.env[k]);
+function requireEnv(keys) {
+  const missing = keys.filter(k => !process.env[k]);
   if (missing.length) {
     throw new Error('Missing required environment variables: ' + missing.join(', '));
   }
+}
+
+// --out <path> (or --out=<path>): write the CSV to a local file instead of
+// emailing it. Useful for manually testing the SQL Server side without
+// waiting on the Gmail round-trip - only needs SPREADSHEET_ID and
+// GOOGLE_SERVICE_ACCOUNT_KEY, not the GMAIL_* credentials.
+function getOutFileArg() {
+  const idx = process.argv.findIndex(a => a === '--out' || a.startsWith('--out='));
+  if (idx === -1) return null;
+  const arg = process.argv[idx];
+  return arg.includes('=') ? arg.split('=')[1] : process.argv[idx + 1];
 }
 
 function getGmailClient() {
@@ -128,16 +139,25 @@ function buildRawEmail(csvContent) {
 }
 
 async function main() {
-  requireEnv();
+  requireEnv(['SPREADSHEET_ID', 'GOOGLE_SERVICE_ACCOUNT_KEY']);
 
   const rows = await buildWalkinRows();
   console.log(`Found ${rows.length} walk-in row(s) to export.`);
   if (!rows.length) {
-    console.log('Nothing to export - skipping email.');
+    console.log('Nothing to export - skipping.');
     return;
   }
 
   const csvContent = buildCsv(rows);
+
+  const outFile = getOutFileArg();
+  if (outFile) {
+    fs.writeFileSync(outFile, csvContent, 'utf8');
+    console.log(`Wrote ${rows.length} rows to ${outFile} (email not sent).`);
+    return;
+  }
+
+  requireEnv(['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN']);
   const gmail = getGmailClient();
   const raw = buildRawEmail(csvContent);
   await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
