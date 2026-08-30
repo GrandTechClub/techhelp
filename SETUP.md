@@ -71,9 +71,8 @@ push to your main branch. No manual redeploy step needed, unlike Apps Script.
   `Members`), pick device, describe problem, submit.
 - Tech Helpers watch the Dashboard URL (put it on the room's screen) — it
   refreshes itself every 4 seconds.
-- **Claim** asks the helper's name and flips the row to Assigned. **Done**
-  completes it and drops it off the dashboard. **Unclaim** reverses a
-  mistaken claim.
+- **Claim** flips the row to Assigned. **Done** completes it and drops it
+  off the dashboard. **Unclaim** reverses a mistaken claim.
 - All of this is still just rows in your Google Sheet under the `Requests`
   tab — nothing gets deleted, so it doubles as your event log.
 

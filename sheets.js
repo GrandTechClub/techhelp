@@ -469,15 +469,13 @@ async function getAllRequests() {
   return results;
 }
 
-async function claimRequest(row, helperName) {
-  helperName = String(helperName || '').trim();
-  if (!helperName) return { success: false, error: 'Helper name required.' };
+async function claimRequest(row) {
   const sheets = await getSheetsClient();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `${REQUESTS_TAB}!G${row}:I${row}`,
     valueInputOption: 'RAW',
-    requestBody: { values: [['Assigned', helperName, formatTimestamp()]] }
+    requestBody: { values: [['Assigned', '', formatTimestamp()]] }
   });
   return { success: true };
 }

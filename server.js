@@ -76,8 +76,8 @@ app.get('/api/requests', async (req, res) => {
 
 app.post('/api/claim', async (req, res) => {
   try {
-    const { row, helperName } = req.body;
-    res.json(await claimRequest(row, helperName));
+    const { row } = req.body;
+    res.json(await claimRequest(row));
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: err.message });

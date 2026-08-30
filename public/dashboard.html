@@ -52,7 +52,6 @@
         <th>Problem</th>
         <th>Checked In</th>
         <th>Status</th>
-        <th>Assigned To</th>
         <th></th>
       </tr>
     </thead>
@@ -108,7 +107,6 @@
         '<td>' + escapeHtml(r.problem) + '</td>' +
         '<td>' + checkedInPill + '</td>' +
         '<td>' + statusPill + '</td>' +
-        '<td>' + escapeHtml(r.assignedTo || '') + '</td>' +
         '<td>' + actions + '</td>' +
       '</tr>';
     }
@@ -131,7 +129,7 @@
 
       let html = unassigned.map(rowHtml).join('');
       if (assigned.length) {
-        html += '<tr class="divider"><td colspan="9">Claimed &mdash; ' + assigned.length + '</td></tr>';
+        html += '<tr class="divider"><td colspan="8">Claimed &mdash; ' + assigned.length + '</td></tr>';
         html += assigned.map(rowHtml).join('');
       }
       tbody.innerHTML = html;
@@ -152,11 +150,9 @@
     }
 
     async function claim(row) {
-      const helper = prompt('Your name (so members know who is helping):');
-      if (!helper) return;
       await fetch('/api/claim', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ row, helperName: helper })
+        body: JSON.stringify({ row })
       });
       refresh();
     }
