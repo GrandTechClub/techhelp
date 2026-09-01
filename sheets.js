@@ -507,6 +507,42 @@ async function completeRequest(row) {
   return { success: true };
 }
 
+/**
+ * Marks every still-open request (anything not already Completed) as
+ * Completed, leaving Assigned To/Assigned Time untouched. Run at the end
+ * of each Tech Help session so a ticket nobody clicked "Done" on doesn't
+ * linger on the live dashboard into the following week.
+ */
+async function completeAllOpenRequests() {
+  const sheets = await getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${REQUESTS_TAB}!A:L`
+  });
+  const data = res.data.values || [];
+  const now = formatTimestamp();
+  const updates = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[1]) continue; // skip blank rows
+    if (row[6] === 'Completed') continue;
+
+    const sheetRow = i + 1;
+    updates.push({ range: `${REQUESTS_TAB}!G${sheetRow}`, values: [['Completed']] });
+    updates.push({ range: `${REQUESTS_TAB}!J${sheetRow}`, values: [[now]] });
+  }
+
+  if (updates.length) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { valueInputOption: 'RAW', data: updates }
+    });
+  }
+
+  return { success: true, completed: updates.length / 2 };
+}
+
 module.exports = {
   ensureRequestsTab,
   getMemberNames,
@@ -516,6 +552,7 @@ module.exports = {
   claimRequest,
   unclaimRequest,
   completeRequest,
+  completeAllOpenRequests,
   importPreRegistrations,
   findPendingCheckIns,
   checkInExisting,

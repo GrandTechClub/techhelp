@@ -1,0 +1,27 @@
+name: Close out open Tech Help tickets
+
+on:
+  schedule:
+    # 5:03 PM Phoenix time on Tuesdays, shortly after Tech Help wraps up
+    # (and just ahead of the 5:05pm walk-ins export). Phoenix doesn't
+    # observe Daylight Saving Time, so it stays UTC-7 year-round - 5:03pm
+    # Tuesday local is 00:03 UTC on Wednesday, no seasonal adjustment
+    # needed. Scheduled off the exact hour on purpose - GitHub Actions'
+    # scheduled triggers are prone to delay or being dropped entirely at
+    # peak load, which is worst right on the hour.
+    - cron: '3 0 * * 3'
+  workflow_dispatch: {} # lets you trigger it manually from the Actions tab
+
+jobs:
+  complete:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install googleapis --no-save
+      - run: node scripts/complete-all-open.js
+        env:
+          SPREADSHEET_ID: ${{ secrets.SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
