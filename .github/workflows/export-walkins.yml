@@ -1,14 +1,15 @@
 name: Export Tech Help walk-ins
 
 on:
-  schedule:
-    # 5:05 PM Phoenix time on Tuesdays. Phoenix doesn't observe Daylight
-    # Saving Time, so it stays UTC-7 year-round - 5:05pm Tuesday local is
-    # 00:05 UTC on Wednesday, no seasonal adjustment needed. Scheduled 5
-    # minutes off the exact hour on purpose - GitHub Actions' scheduled
-    # triggers are prone to delay or being dropped entirely at peak load,
-    # which is worst right on the hour.
-    - cron: '5 0 * * 3'
+  # No schedule: trigger here on purpose. GitHub Actions' own cron
+  # scheduling is "best effort" with no timing guarantee - it has fired
+  # up to ~4.5 hours late, well after the same-night Windows/SQL load
+  # steps already ran and found nothing to pick up. This is triggered
+  # externally instead, by a Task Scheduler job on the club's own Windows
+  # server (see trigger_export_walkins_workflow.py) calling the GitHub
+  # API's workflow_dispatch endpoint at 5:05 PM Phoenix time every
+  # Tuesday - that server's own schedules have been reliable all along,
+  # unlike GitHub's.
   workflow_dispatch:
     inputs:
       test_only:
