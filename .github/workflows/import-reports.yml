@@ -1,23 +1,17 @@
 name: Import Club Express reports
 
 on:
-  schedule:
-    # Three attempts packed into the window that actually matters: after
-    # Club Express's own 11:30 AM export, before the noon-ish Tech Help
-    # start. GitHub Actions' scheduled triggers are "best effort" with no
-    # timing guarantee - they've fired hours late before - so one attempt
-    # isn't reliable enough here, unlike the walk-ins export (which can
-    # land whenever, so a single attempt plus a Windows-side repeating
-    # pickup is enough for that one). This script is safe to run more
-    # than once: Members does a full overlay each time, and
-    # Pre-Registrations dedupes by CE Reg ID, so repeats before an email
-    # exists just find nothing, and repeats after it exists just skip
-    # what's already imported. Phoenix (Arizona) doesn't observe Daylight
-    # Saving Time, so it stays UTC-7 year-round - no seasonal adjustment
-    # needed here, unlike most US timezones.
-    - cron: '35 18 * * 2'  # 11:35 AM Phoenix
-    - cron: '45 18 * * 2'  # 11:45 AM Phoenix
-    - cron: '55 18 * * 2'  # 11:55 AM Phoenix
+  # No schedule: trigger here on purpose. GitHub Actions' own cron
+  # scheduling is "best effort" with no timing guarantee - even three
+  # attempts packed into the critical pre-event window (11:35/11:45/11:55
+  # AM) failed to fire at all on 2026-09-22. This job is time-critical -
+  # same-day registrations are invisible to check-in staff if it's
+  # missed - so it's triggered externally instead, by a scheduled job on
+  # cron-job.org calling this workflow's workflow_dispatch API endpoint
+  # directly. That's a dedicated, purpose-built scheduling service, not
+  # subject to either GitHub Actions' internal scheduler flakiness or the
+  # HTTPS-call restrictions on the club's own Windows server that ruled
+  # out triggering it from there instead.
   workflow_dispatch: {} # also lets you trigger it manually from the Actions tab
 
 jobs:
