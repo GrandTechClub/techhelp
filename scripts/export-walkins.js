@@ -178,9 +178,15 @@ async function main() {
   requireEnv(['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN']);
   const gmail = getGmailClient();
   const raw = buildRawEmail(csvContent);
-  await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+  const sendResult = await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
 
-  console.log(`Sent ${FILENAME} (${rows.length} rows) to ${RECIPIENT}.`);
+  // Log the actual message/thread ID Gmail's API returns, not just that
+  // the call didn't throw - a "successful" response with no visible
+  // message anywhere (Inbox, Sent, All Mail, Spam) has happened before,
+  // and having the real ID gives something concrete to search for
+  // (https://mail.google.com/mail/u/0/#all/<id>) instead of only having
+  // console output to go on.
+  console.log(`Sent ${FILENAME} (${rows.length} rows) to ${RECIPIENT}. Message ID: ${sendResult.data.id}, Thread ID: ${sendResult.data.threadId}`);
 }
 
 main().catch(err => {
