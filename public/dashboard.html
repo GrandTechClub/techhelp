@@ -35,11 +35,32 @@
     .conn-warning { display: none; background: #fce8e6; color: #c5221f; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; font-size: 16px; font-weight: bold; }
     #open-count { font-weight: bold; color: #c5221f; }
     tr.divider td { background: #f1f3f4; color: #5f6368; font-weight: bold; font-size: 15px; padding: 8px 16px; border-bottom: 1px solid #eee; }
+    .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    #not-here-count { color: #5f6368; }
+    #compactBtn {
+      padding: 8px 16px; font-size: 15px; border-radius: 6px; border: 1px solid #dadce0;
+      background: #fff; color: #3c4043; cursor: pointer; white-space: nowrap;
+    }
+    body.compact { padding: 12px; }
+    body.compact h1 { font-size: 24px; }
+    body.compact .meta { font-size: 14px; margin-bottom: 8px; }
+    body.compact th, body.compact td { padding: 4px 10px; font-size: 14px; }
+    body.compact th { font-size: 13px; }
+    body.compact td:first-child { white-space: nowrap; }
+    body.compact .pill { padding: 2px 9px; font-size: 13px; }
+    body.compact button.claim, body.compact button.complete { padding: 4px 14px; font-size: 14px; }
+    body.compact .unclaim-link { font-size: 13px; }
+    body.compact tr.divider td { padding: 3px 10px; font-size: 13px; }
   </style>
 </head>
 <body>
-  <h1>Tech Help Queue</h1>
-  <div class="meta">Auto-refreshes every 4 seconds &middot; <span id="open-count"></span> &middot; Last updated: <span id="meta-time">--</span></div>
+  <div class="topbar">
+    <div>
+      <h1>Tech Help Queue</h1>
+      <div class="meta">Auto-refreshes every 4 seconds &middot; <span id="open-count"></span><span id="not-here-count"></span> &middot; Last updated: <span id="meta-time">--</span></div>
+    </div>
+    <button id="compactBtn" type="button">Compact view</button>
+  </div>
   <div class="conn-warning" id="connWarning">Can't reach the server - showing the last known queue. Retrying...</div>
 
   <table>
@@ -116,9 +137,14 @@
       const emptyMsg = document.getElementById('emptyMsg');
       document.getElementById('meta-time').textContent = new Date().toLocaleTimeString();
 
-      const unassigned = requests.filter(function (r) { return r.status !== 'Assigned'; });
+      // Three groups, in the order the room cares about: people who are here
+      // and waiting, people being helped, and pre-registered people who
+      // haven't arrived yet (kept at the bottom so they don't crowd the top).
+      const waiting = requests.filter(function (r) { return r.status !== 'Assigned' && r.checkedIn === 'Yes'; });
       const assigned = requests.filter(function (r) { return r.status === 'Assigned'; });
-      document.getElementById('open-count').textContent = unassigned.length + ' open';
+      const notHere = requests.filter(function (r) { return r.status !== 'Assigned' && r.checkedIn !== 'Yes'; });
+      document.getElementById('open-count').textContent = waiting.length + ' waiting';
+      document.getElementById('not-here-count').textContent = notHere.length ? ' · ' + notHere.length + ' not yet here' : '';
 
       if (!requests.length) {
         tbody.innerHTML = '';
@@ -127,10 +153,14 @@
       }
       emptyMsg.style.display = 'none';
 
-      let html = unassigned.map(rowHtml).join('');
+      let html = waiting.map(rowHtml).join('');
       if (assigned.length) {
         html += '<tr class="divider"><td colspan="8">Claimed &mdash; ' + assigned.length + '</td></tr>';
         html += assigned.map(rowHtml).join('');
+      }
+      if (notHere.length) {
+        html += '<tr class="divider"><td colspan="8">Not yet here &mdash; ' + notHere.length + '</td></tr>';
+        html += notHere.map(rowHtml).join('');
       }
       tbody.innerHTML = html;
     }
@@ -172,6 +202,25 @@
       });
       refresh();
     }
+
+    // Compact view: tighter padding/fonts so more rows fit on a projector.
+    // Remembered per browser; the try/catch keeps the dashboard working if
+    // storage is blocked.
+    const COMPACT_KEY = 'techhelp-dashboard-compact';
+    let compactOn = false;
+    try { compactOn = localStorage.getItem(COMPACT_KEY) === '1'; } catch (e) {}
+
+    function applyCompact() {
+      document.body.classList.toggle('compact', compactOn);
+      document.getElementById('compactBtn').textContent = compactOn ? 'Normal view' : 'Compact view';
+    }
+
+    document.getElementById('compactBtn').addEventListener('click', function () {
+      compactOn = !compactOn;
+      applyCompact();
+      try { localStorage.setItem(COMPACT_KEY, compactOn ? '1' : '0'); } catch (e) {}
+    });
+    applyCompact();
 
     refresh();
     setInterval(refresh, REFRESH_MS);
