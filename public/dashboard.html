@@ -138,8 +138,8 @@
       document.getElementById('meta-time').textContent = new Date().toLocaleTimeString();
 
       // Three groups, in the order the room cares about: people who are here
-      // and waiting, people being helped, and pre-registered people who
-      // haven't arrived yet (kept at the bottom so they don't crowd the top).
+      // and waiting, pre-registered people who haven't arrived yet (about to
+      // become waiting), and people already being helped.
       const waiting = requests.filter(function (r) { return r.status !== 'Assigned' && r.checkedIn === 'Yes'; });
       const assigned = requests.filter(function (r) { return r.status === 'Assigned'; });
       const notHere = requests.filter(function (r) { return r.status !== 'Assigned' && r.checkedIn !== 'Yes'; });
@@ -154,13 +154,13 @@
       emptyMsg.style.display = 'none';
 
       let html = waiting.map(rowHtml).join('');
-      if (assigned.length) {
-        html += '<tr class="divider"><td colspan="8">Claimed &mdash; ' + assigned.length + '</td></tr>';
-        html += assigned.map(rowHtml).join('');
-      }
       if (notHere.length) {
         html += '<tr class="divider"><td colspan="8">Not yet here &mdash; ' + notHere.length + '</td></tr>';
         html += notHere.map(rowHtml).join('');
+      }
+      if (assigned.length) {
+        html += '<tr class="divider"><td colspan="8">Claimed &mdash; ' + assigned.length + '</td></tr>';
+        html += assigned.map(rowHtml).join('');
       }
       tbody.innerHTML = html;
     }
