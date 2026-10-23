@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.23.4'
       - run: npm install googleapis --no-save
       - run: node scripts/complete-all-open.js
         env:
