@@ -86,11 +86,28 @@
   <script>
     const REFRESH_MS = 4000;
 
+    // Club Express registration times have no year ("11/9 12:52 PM"), and
+    // new Date() quietly calls those 2001. Build the date ourselves instead,
+    // using the current year - or last year if that would land in the
+    // future (e.g. a December registration viewed in January). Anything else
+    // (like "11/10/2026, 11:35:45 AM") goes through the normal parser.
+    function parseTimestamp(raw, now) {
+      now = now || new Date();
+      const s = String(raw == null ? '' : raw).trim();
+      const m = s.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (!m) return new Date(s);
+      let hour = Number(m[3]) % 12;
+      if (m[5].toUpperCase() === 'PM') hour += 12;
+      const d = new Date(now.getFullYear(), Number(m[1]) - 1, Number(m[2]), hour, Number(m[4]));
+      if (d.getTime() - now.getTime() > 24 * 60 * 60 * 1000) d.setFullYear(d.getFullYear() - 1);
+      return d;
+    }
+
     // Date above time, so it's clear when pre-registrations came in. The year
     // only shows when it isn't the current year. If the value can't be read
     // as a date, show it as-is instead of "Invalid Date".
     function fmtTime(iso) {
-      const d = new Date(iso);
+      const d = parseTimestamp(iso);
       if (isNaN(d.getTime())) return escapeHtml(iso);
       const dateOpts = { month: 'short', day: 'numeric' };
       if (d.getFullYear() !== new Date().getFullYear()) dateOpts.year = 'numeric';
