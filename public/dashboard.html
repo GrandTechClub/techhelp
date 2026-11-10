@@ -37,6 +37,8 @@
     tr.divider td { background: #f1f3f4; color: #5f6368; font-weight: bold; font-size: 15px; padding: 8px 16px; border-bottom: 1px solid #eee; }
     .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
     #not-here-count { color: #5f6368; }
+    .t-date { display: block; font-size: 15px; color: #5f6368; }
+    .t-time { display: block; }
     #compactBtn {
       padding: 8px 16px; font-size: 15px; border-radius: 6px; border: 1px solid #dadce0;
       background: #fff; color: #3c4043; cursor: pointer; white-space: nowrap;
@@ -47,6 +49,7 @@
     body.compact th, body.compact td { padding: 4px 10px; font-size: 14px; }
     body.compact th { font-size: 13px; }
     body.compact td:first-child { white-space: nowrap; }
+    body.compact .t-date, body.compact .t-time { display: inline; font-size: 14px; }
     body.compact .pill { padding: 2px 9px; font-size: 13px; }
     body.compact button.claim, body.compact button.complete { padding: 4px 14px; font-size: 14px; }
     body.compact .unclaim-link { font-size: 13px; }
@@ -83,10 +86,16 @@
   <script>
     const REFRESH_MS = 4000;
 
+    // Date above time, so it's clear when pre-registrations came in. The year
+    // only shows when it isn't the current year. If the value can't be read
+    // as a date, show it as-is instead of "Invalid Date".
     function fmtTime(iso) {
-      try {
-        return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      } catch (e) { return iso; }
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return escapeHtml(iso);
+      const dateOpts = { month: 'short', day: 'numeric' };
+      if (d.getFullYear() !== new Date().getFullYear()) dateOpts.year = 'numeric';
+      return '<span class="t-date">' + d.toLocaleDateString([], dateOpts) + '</span> ' +
+             '<span class="t-time">' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '</span>';
     }
 
     function escapeHtml(s) {
